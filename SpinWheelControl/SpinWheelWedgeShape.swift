@@ -11,8 +11,9 @@ import UIKit
 open class SpinWheelWedgeShape: CAShapeLayer {
     
     private func setDefaultValues() {
-        self.strokeColor = UIColor.white.cgColor
-        self.lineWidth = 3.0
+        self.strokeColor = UIColor.black.cgColor
+        self.lineWidth = 1.0
+        
     }
     
     
@@ -36,3 +37,4 @@ open class SpinWheelWedgeShape: CAShapeLayer {
         return newWedgePath
     }
 }
+

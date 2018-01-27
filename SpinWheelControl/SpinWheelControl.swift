@@ -17,6 +17,9 @@ public typealias Degrees = CGFloat
 public typealias Radians = CGFloat
 typealias Velocity = CGFloat
 
+public class SharedInstance{
+    public static var flag = false
+}
 public enum SpinWheelStatus {
     case idle, decelerating, snapping
 }
@@ -77,11 +80,13 @@ open class SpinWheelControl: UIControl {
     }
     
     
+    
     @IBInspectable var snapOrientation: CGFloat = SpinWheelDirection.up.degreesValue {
         didSet {
             snappingPositionRadians = snapOrientation.toRadians
         }
     }
+    
     
     
     @objc weak public var dataSource: SpinWheelControlDataSource?
@@ -155,6 +160,7 @@ open class SpinWheelControl: UIControl {
     }
     
     //The velocity of the spinwheel
+    var randomArr = [0,10,20,-10,-20]
     @objc var velocity: Velocity {
         var computedVelocity: Velocity = 0
         
@@ -171,8 +177,13 @@ open class SpinWheelControl: UIControl {
         else if computedVelocity < -SpinWheelControl.kMaxVelocity {
             computedVelocity = -SpinWheelControl.kMaxVelocity
         }
-        
-        return computedVelocity
+        let returnValue  = computedVelocity + CGFloat(randomArr[Int(arc4random_uniform(UInt32(randomArr.count)))])
+        if returnValue == 0{
+            return returnValue - computedVelocity
+        }
+        else{
+            return returnValue
+        }
     }
     
     
@@ -213,9 +224,12 @@ open class SpinWheelControl: UIControl {
     
     
     //Draw the spinWheelView
+    
     @objc public func drawWheel() {
         spinWheelView = UIView(frame: self.bounds)
-        
+        spinWheelView.layer.borderWidth = 5.0
+        spinWheelView.layer.borderColor = UIColor(red: 55/255, green: 21/255, blue: 158/255, alpha: 1).cgColor
+        spinWheelView.layer.cornerRadius = spinWheelView.frame.width/2
         guard self.dataSource?.numberOfWedgesInSpinWheel(spinWheel: self) != nil else {
             return
         }
@@ -233,9 +247,16 @@ open class SpinWheelControl: UIControl {
         
         for wedgeNumber in 0..<numberOfWedges {
             let wedge: SpinWheelWedge = source.wedgeForSliceAtIndex(index: wedgeNumber)
-            
+            if SharedInstance.flag == true && wedgeNumber == selectedIndex{
+                wedge.shape.fillColor = UIColor.blue.cgColor
+            }
+            else{
+                wedge.shape.fillColor = UIColor.white.cgColor
+            }
             //Wedge shape
+            
             wedge.shape.configureWedgeShape(index: wedgeNumber, radius: radius, position: spinWheelCenter, degreesPerWedge: degreesPerWedge)
+            //wedge.shape.backgroundColor = UIColor.white.cgColor
             wedge.layer.addSublayer(wedge.shape)
             
             //Wedge label
@@ -263,9 +284,12 @@ open class SpinWheelControl: UIControl {
     }
     
     
-    //User began touching/dragging the UIControl
     
- override open func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
+    
+    @discardableResult
+    open func beginTrackingTest(_ touchPoint: CGPoint, radians: Radians) -> Bool{
+        print("begin: \(touchPoint), \(radians)")
+        
         switch currentStatus {
         case SpinWheelStatus.idle:
             currentlyDetectingTap = true
@@ -276,7 +300,6 @@ open class SpinWheelControl: UIControl {
             endSnap()
         }
         
-        let touchPoint: CGPoint = touch.location(in: self)
         
         if distanceFromCenter(point: touchPoint) < SpinWheelControl.kMinDistanceFromCenter {
             return false
@@ -285,22 +308,21 @@ open class SpinWheelControl: UIControl {
         startTrackingTime = CACurrentMediaTime()
         endTrackingTime = startTrackingTime
         
-        startTouchRadians = radiansForTouch(touch: touch)
+        startTouchRadians = radians
         currentTouchRadians = startTouchRadians
         previousTouchRadians = startTouchRadians
-        
         return true
     }
     
-    
-    //User is in the middle of dragging the UIControl
-    override open func continueTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
+    @discardableResult
+    open func continueTrackingTest(_ touchPoint: CGPoint, radians: Radians) -> Bool{
+        print("continue: \(touchPoint), \(radians)")
         currentlyDetectingTap = false
         
         startTrackingTime = endTrackingTime
         endTrackingTime = CACurrentMediaTime()
         
-        let touchPoint: CGPoint = touch.location(in: self)
+        let touchPoint: CGPoint = touchPoint
         let distanceFromCenterOfSpinWheel: CGFloat = distanceFromCenter(point: touchPoint)
         
         if distanceFromCenterOfSpinWheel < SpinWheelControl.kMinDistanceFromCenter {
@@ -308,7 +330,7 @@ open class SpinWheelControl: UIControl {
         }
         
         previousTouchRadians = currentTouchRadians
-        currentTouchRadians = radiansForTouch(touch: touch)
+        currentTouchRadians = radians
         let touchRadiansDifference: Radians = currentTouchRadians - previousTouchRadians
         
         self.spinWheelView.transform = self.spinWheelView.transform.rotated(by: touchRadiansDifference)
@@ -318,21 +340,113 @@ open class SpinWheelControl: UIControl {
         return true
     }
     
-    
-    //User ended touching/dragging the UIControl
-    override open func endTracking(_ touch: UITouch?, with event: UIEvent?) {
-        let tapCount = touch?.tapCount != nil ? (touch?.tapCount)! : 0
-        //TODO: Implement tap to move to wedge
-        //If the user just tapped, move to that wedge
+    open func endTracking(_ tapCount: Int){
+        print("end: \(tapCount)")
         if currentStatus == .idle &&
             tapCount > 0 &&
-            currentlyDetectingTap {}
+            currentlyDetectingTap {print("if")}
             //Else decelerate
+            
         else {
+            print("else")
             beginDeceleration()
         }
     }
- 
+    
+    
+    //User began touching/dragging the UIControl
+    override open func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
+        let touchPoint: CGPoint = touch.location(in: self)
+        let radians = radiansForTouch(touch: touch)
+        return self.beginTrackingTest(touchPoint, radians: radians)
+    }
+    
+    
+    
+    //User is in the middle of dragging the UIControl
+    override open func continueTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
+        let touchPoint: CGPoint = touch.location(in: self)
+        let radians = radiansForTouch(touch: touch)
+        return self.continueTrackingTest(touchPoint, radians: radians)
+    }
+    
+    
+    //User ended touching/dragging the UIControl
+    override open func endTracking(_ touch: UITouch?, with event: UIEvent?) {
+        self.endTracking(touch?.tapCount != nil ? (touch?.tapCount)! : 0)
+    }
+    
+    
+    //User began touching/dragging the UIControl
+    /*
+     override open func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
+     switch currentStatus {
+     case SpinWheelStatus.idle:
+     currentlyDetectingTap = true
+     case SpinWheelStatus.decelerating:
+     endDeceleration()
+     endSnap()
+     case SpinWheelStatus.snapping:
+     endSnap()
+     }
+     
+     let touchPoint: CGPoint = touch.location(in: self)
+     
+     if distanceFromCenter(point: touchPoint) < SpinWheelControl.kMinDistanceFromCenter {
+     return false
+     }
+     
+     startTrackingTime = CACurrentMediaTime()
+     endTrackingTime = startTrackingTime
+     
+     startTouchRadians = radiansForTouch(touch: touch)
+     currentTouchRadians = startTouchRadians
+     previousTouchRadians = startTouchRadians
+     
+     return true
+     }
+     
+     
+     //User is in the middle of dragging the UIControl
+     override open func continueTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
+     currentlyDetectingTap = false
+     
+     startTrackingTime = endTrackingTime
+     endTrackingTime = CACurrentMediaTime()
+     
+     let touchPoint: CGPoint = touch.location(in: self)
+     let distanceFromCenterOfSpinWheel: CGFloat = distanceFromCenter(point: touchPoint)
+     
+     if distanceFromCenterOfSpinWheel < SpinWheelControl.kMinDistanceFromCenter {
+     return true
+     }
+     
+     previousTouchRadians = currentTouchRadians
+     currentTouchRadians = radiansForTouch(touch: touch)
+     let touchRadiansDifference: Radians = currentTouchRadians - previousTouchRadians
+     
+     self.spinWheelView.transform = self.spinWheelView.transform.rotated(by: touchRadiansDifference)
+     
+     delegate?.spinWheelDidRotateByRadians?(radians: touchRadiansDifference)
+     
+     return true
+     }
+     
+     
+     //User ended touching/dragging the UIControl
+     override open func endTracking(_ touch: UITouch?, with event: UIEvent?) {
+     let tapCount = touch?.tapCount != nil ? (touch?.tapCount)! : 0
+     //TODO: Implement tap to move to wedge
+     //If the user just tapped, move to that wedge
+     if currentStatus == .idle &&
+     tapCount > 0 &&
+     currentlyDetectingTap {}
+     //Else decelerate
+     else {
+     beginDeceleration()
+     }
+     }
+     */
     
     //After user has lifted their finger from dragging, begin the deceleration
     @objc func beginDeceleration() {
@@ -348,7 +462,7 @@ open class SpinWheelControl: UIControl {
                 //decelerationDisplayLink?.preferredFramesPerSecond = SpinWheelControl.kPreferredFramesPerSecond
             } else {
                 // TODO: Fallback on earlier versions
-                decelerationDisplayLink?.preferredFramesPerSecond = SpinWheelControl.kPreferredFramesPerSecond
+                //decelerationDisplayLink?.preferredFramesPerSecond = SpinWheelControl.kPreferredFramesPerSecond
             }
             decelerationDisplayLink?.add(to: RunLoop.main, forMode: RunLoopMode.commonModes)
         }
@@ -477,7 +591,14 @@ open class SpinWheelControl: UIControl {
     
     //Clear all views and redraw the spin wheel
     @objc public func reloadData() {
-        clear()
-        drawWheel()
+        if SharedInstance.flag == true{
+            drawWheel()
+        }
+        else{
+            clear()
+            drawWheel()
+        }
+        
     }
 }
+
