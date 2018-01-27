@@ -264,7 +264,8 @@ open class SpinWheelControl: UIControl {
     
     
     //User began touching/dragging the UIControl
-    override open func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
+    /*
+ override open func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
         switch currentStatus {
         case SpinWheelStatus.idle:
             currentlyDetectingTap = true
@@ -331,7 +332,7 @@ open class SpinWheelControl: UIControl {
             beginDeceleration()
         }
     }
-    
+    */
     
     //After user has lifted their finger from dragging, begin the deceleration
     @objc func beginDeceleration() {
